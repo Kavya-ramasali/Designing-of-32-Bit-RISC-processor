@@ -1,0 +1,49 @@
+// risc_32_modify.sv - 32-bit RISC CPU
+module risc_32_modify(
+    input  [2:0] temp_st,
+    input        clk,
+    output       clk1
+);
+    // CPU internals
+    reg [31:0] regb [0:31];      // 32 general purpose 32-bit registers
+    reg [31:0] mem  [0:255];     // instruction memory
+    reg [31:0] datamem [0:63];   // data memory
+    reg [31:0] pc;
+    reg        halted;
+
+    // internal wires/regs
+    reg [31:0] instr;
+    reg [5:0]  opcode;
+    reg [4:0]  rd, rs, rt;
+    reg [15:0] imm;
+
+    assign clk1 = clk;  // simple pass-through
+
+    // Fetch-decode-execute loop
+    always @(posedge clk) begin
+        if (!halted) begin
+            instr = mem[pc];
+            opcode = instr[31:26];
+            rd     = instr[25:21];
+            rs     = instr[20:16];
+            rt     = instr[15:11];
+            imm    = instr[15:0];
+
+            case (opcode)
+                6'b100001: regb[rd] <= regb[rs] + imm;           // ADDI
+                6'b000000: regb[rd] <= regb[rs] + regb[rt];      // ADD
+                6'b000001: regb[rd] <= regb[rs] - regb[rt];      // SUB
+                6'b100011: regb[rd] <= regb[rs] * imm;           // MULI
+                6'b000011: regb[rd] <= regb[rs] / regb[rt];      // DIV
+                6'b100101: regb[rd] <= regb[rs] & imm;           // ANDI
+                6'b110000: regb[rd] <= datamem[regb[rs] + imm];  // LW
+                6'b110001: datamem[regb[rs] + imm] <= regb[rd];  // SW
+                6'b111111: halted <= 1;                          // HALT
+                default: ; // NOP / unknown
+            endcase
+
+            pc <= pc + 1;
+        end
+    end
+
+endmodule
